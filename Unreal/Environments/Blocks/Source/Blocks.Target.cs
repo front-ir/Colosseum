@@ -9,6 +9,7 @@ public class BlocksTarget : TargetRules
 	{
 		Type = TargetType.Game;
 		ExtraModuleNames.AddRange(new string[] { "Blocks" });
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
 
 		//bUseUnityBuild = false;
 		if (Target.Platform == UnrealTargetPlatform.Linux)
