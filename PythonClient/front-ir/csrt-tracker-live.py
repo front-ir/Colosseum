@@ -41,6 +41,9 @@ tracker = None
 detected = False
 margin = 10
 last_cascade_time = time.time()
+inv = False
+thresh = cv2.THRESH_BINARY
+if inv: thresh = cv2.THRESH_BINARY_INV
 
 while True:
 
@@ -67,7 +70,36 @@ while True:
 	# loop over the bounding boxes and draw then on the frame
         if success:
             (x, y, w, h) = [int(v) for v in box]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cropped_image = cv2.getRectSubPix(frame, (w, h), (x + w / 2, y + h / 2))
+            k = 3
+            #blurred = cv2.GaussianBlur(cropped_image, (k, k), 0)
+            _, thresholded = cv2.threshold(cropped_image, 200, 255, thresh)
+            contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            cv2.imshow("thresh1", thresholded)
+
+            for contour in contours:
+                #print(contour)
+
+                #print(contour)
+
+                # Approximate the contour to a polygon
+                epsilon = 0.04 * cv2.arcLength(contour, True)
+                approx = cv2.approxPolyDP(contour, epsilon, True)
+                area = cv2.contourArea(contour)
+                (cx, cy), radius = cv2.minEnclosingCircle(contour)
+                circle_area = np.pi * (radius ** 2)
+                if len(approx) > 8 and abs(circle_area - area) < 0.1 * circle_area:
+                    print("Detected shape is a circle.")
+                #else:
+                    #print("Detected shape is not a circle.")
+                    #cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            offset_contours = [contour + np.array([x, y], dtype=np.int32) for contour in contours]
+            #cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
+            #cv2.drawContours(frame, approx, -1, (0, 255, 0), 1)
+
         else:
             detected = False
             tracker = False
@@ -83,7 +115,7 @@ while True:
             #        tracker = None
             #    last_cascade_time = current_time
 
-            
+
 
     #detections = cascade.detectMultiScale(image, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
 
