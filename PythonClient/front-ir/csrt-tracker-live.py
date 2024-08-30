@@ -46,87 +46,62 @@ thresh = cv2.THRESH_BINARY
 if inv: thresh = cv2.THRESH_BINARY_INV
 
 while True:
-
-
     # because this method returns std::vector<uint8>, msgpack decides to encode it as a string unfortunately.
     response = client.simGetImages([
             airsim.ImageRequest("0", image_type, pixels_as_float, compress)])[0]
     image = np.frombuffer(response.image_data_uint8, dtype=np.uint8).reshape(response.height, response.width, 3)
     frame = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+    _, thresholded = cv2.threshold(frame, 210, 255, thresh)
 
     if not detected:
-        detections = cascade.detectMultiScale(frame, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
+        detections = cascade.detectMultiScale(thresholded, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
         if len(detections) > 0:
             (x, y, w, h) = detections[0]
             print(f"{x + w * 0.5} {y + h * 0.5}")
             print(x-margin, y-margin, w+margin, h+margin)
             tracker = cv2.legacy.TrackerCSRT_create()
             tracker.init(frame, (x-margin, y-margin, w+margin, h+margin))
-            #trackers.add(tracker, frame, (x-margin, y-margin, w+margin, h+margin))
             detected = True
 
     if detected:
-        (success, box) = tracker.update(frame)
-	# loop over the bounding boxes and draw then on the frame
+        (success, box) = tracker.update(thresholded)
         if success:
             (x, y, w, h) = [int(v) for v in box]
-            cropped_image = cv2.getRectSubPix(frame, (w, h), (x + w / 2, y + h / 2))
-            k = 3
-            #blurred = cv2.GaussianBlur(cropped_image, (k, k), 0)
-            _, thresholded = cv2.threshold(cropped_image, 200, 255, thresh)
-            contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            current_time = time.time()
+            if current_time - last_cascade_time > 3:
+                cropped_tracker = cv2.getRectSubPix(thresholded, (w, h), (x + w / 2, y + h / 2))
+                circles = cv2.HoughCircles(cropped_tracker, cv2.HOUGH_GRADIENT, dp=1.2, minDist=100,
+                                           param1=100, param2=16, minRadius=10, maxRadius=100)
+                if circles is not None:
+                    print("Round shape detected. Refreshing")
+                    tracker = None
+                    detected = None
+                else:
+                    detections = cascade.detectMultiScale(cropped_tracker, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
+                    if len(detections) == 0:
+                        print("No shahed in box")
+                        tracker = None
+                        detected = False
+                last_cascade_time = current_time
 
-            cv2.imshow("thresh1", thresholded)
-
-            for contour in contours:
-                #print(contour)
-
-                #print(contour)
-
-                # Approximate the contour to a polygon
-                epsilon = 0.04 * cv2.arcLength(contour, True)
-                approx = cv2.approxPolyDP(contour, epsilon, True)
-                area = cv2.contourArea(contour)
-                (cx, cy), radius = cv2.minEnclosingCircle(contour)
-                circle_area = np.pi * (radius ** 2)
-                if len(approx) > 8 and abs(circle_area - area) < 0.1 * circle_area:
-                    print("Detected shape is a circle.")
-                #else:
-                    #print("Detected shape is not a circle.")
-                    #cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            offset_contours = [contour + np.array([x, y], dtype=np.int32) for contour in contours]
-            #cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
-            #cv2.drawContours(frame, approx, -1, (0, 255, 0), 1)
-
+            # contours, _ = cv2.findContours(cropped_tracker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # if contours is None:
+                # print("Nothing is inside the tracker. Refreshing")
+                # tracker = False
+                # detected = None
+                # continue
+            # else:
+                # offset_contours = [contour + np.array([x, y], dtype=np.int32) for contour in contours]
+                # cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
         else:
-            detected = False
-            tracker = False
             print("Tracker lost")
-
-            #current_time = time.time()
-            #if current_time - last_cascade_time > 3:
-            #    cropped_image = cv2.getRectSubPix(frame, (w, h), (x + w / 2, y + h / 2))
-            #    #cv2.imshow("asd", cropped_image)
-            #    detections = cascade.detectMultiScale(cropped_image, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
-            #    if len(detections) == 0:
-            #        detected = False
-            #        tracker = None
-            #    last_cascade_time = current_time
-
-
-
-    #detections = cascade.detectMultiScale(image, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
-
-    #if len(detections) > 0:
-    #    (x, y, w, h) = detections[0]
-    #    cv2.rectangle(image, (x, y), (x + w, y + h), (255, 255, 255), 1)
-    #    print(f"{x + w * 0.5} {y + h * 0.5}")
+            tracker = None
+            detected = None
 
     cv2.putText(frame,'FPS ' + str(fps),textOrg, fontFace, fontScale,(255,0,255),thickness)
-
     cv2.imshow("Grey", frame)
+    cv2.imshow("thresholded", thresholded)
     frameCount += 1
     endTime = time.time()
     diff = endTime - startTime
