@@ -40,12 +40,20 @@ compress = False
 tracker = None
 detected = False
 margin = 10
-last_cascade_time = time.time()
+#last_cascade_time = time.time()
 inv = False
 thresh = cv2.THRESH_BINARY
 if inv: thresh = cv2.THRESH_BINARY_INV
 wait_time = 0
 
+
+def create_tracker(frame, x,y,w,h):
+    tracker = cv2.legacy.TrackerCSRT_create()
+    tracker.init(frame, (x, y, w, h))
+    return tracker
+
+
+i = 0
 
 while True:
     # because this method returns std::vector<uint8>, msgpack decides to encode it as a string unfortunately.
@@ -61,20 +69,24 @@ while True:
     if not detected and wait_time == 0:
         detections = cascade.detectMultiScale(thresholded, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
         if len(detections) > 0:
-            (x, y, w, h) = detections[0]
-            print(f"{x + w * 0.5} {y + h * 0.5}")
-            print(x-margin, y-margin, w+margin, h+margin)
-            tracker = cv2.legacy.TrackerCSRT_create()
-            tracker.init(frame, (x-margin, y-margin, w+margin, h+margin))
+            (dx, dy, dw, dh) = detections[0]
+            #print(f"{dx + dw * 0.5} {dy + dh * 0.5}")
+            #print(dx-margin, dy-margin, dw+margin, dh+margin)
+            tracker = create_tracker(thresholded, dx-margin, dy-margin, dw+margin, dh+margin)
+            #tracker = cv2.legacy.TrackerCSRT_create()
+            #tracker.init(frame, (dx-margin, dy-margin, dw+margin, dh+margin))
             detected = True
 
     if detected:
         (success, box) = tracker.update(thresholded)
         if success:
-            (x, y, w, h) = [int(v) for v in box]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            (tx, ty, tw, th) = [int(v) for v in box]
+            cv2.rectangle(frame, (tx, ty), (tx + tw, ty + th), (0, 255, 0), 2)
 
-            cropped_tracker = cv2.getRectSubPix(thresholded, (w, h), (x + w / 2, y + h / 2))
+            tracker_x = tx
+            tracker_y = ty
+
+            cropped_tracker = cv2.getRectSubPix(thresholded, (tw, th), (tx + tw / 2, ty + th / 2))
 
             circles = cv2.HoughCircles(cropped_tracker, cv2.HOUGH_GRADIENT, dp=1.1, minDist=100,
                                        param1=110, param2=25, minRadius=10, maxRadius=100)
@@ -85,34 +97,62 @@ while True:
                     #cv2.circle(frame, (circle[0]+x, circle[1]+y), circle[2], (0, 0, 0), 2)
                     #Draw the center of the circle
                     #cv2.circle(frame, (circle[0]+x, circle[1]+y), 2, (0, 0, 255), 3)
-                #print("Round shape detected. Stopping tracking for 2 sec")
+                print("Round shape detected. Stopping tracking for 2 sec")
                 tracker = None
                 detected = False
                 wait_time = time.time()
                 #continue
 
-            current_time = time.time()
-            if current_time - last_cascade_time > 2:
-                detections = cascade.detectMultiScale(cropped_tracker, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
-                if len(detections) == 0:
-                    print("No shahed in box")
-                    tracker = None
-                    detected = False
-                last_cascade_time = current_time
+            # current_time = time.time()
+            # if current_time - last_cascade_time > 2:
+                # detections = cascade.detectMultiScale(cropped_tracker, scaleFactor=1.05, minNeighbors=55, minSize=(10, 10), maxSize=(55, 55))
+                # if len(detections) == 0:
+                    # print("No shahed in box")
+                    # tracker = None
+                    # detected = False
+                # last_cascade_time = current_time
 
-            # contours, _ = cv2.findContours(cropped_tracker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # if contours is None:
-                # print("Nothing is inside the tracker. Refreshing")
-                # tracker = False
-                # detected = None
-                # continue
-            # else:
-                # offset_contours = [contour + np.array([x, y], dtype=np.int32) for contour in contours]
-                # cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
+            contours, _ = cv2.findContours(cropped_tracker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if contours is None:
+                print("Nothing is inside the tracker. Refreshing")
+                tracker = None
+                detected = False
+            elif len(contours) > 1:
+                print("Multiple contours detected in box. Refresh")
+                tracker = None
+                detected = False
+            elif len(contours) == 1:
+                contour = contours[0]
+                #is_closed = np.array_equal(contour[0], contour[-1])
+                #if not is_closed:
+                #    print("Contour is not closed (has gaps), removing tracker")
+                #    tracker = None
+                #    detected = False
+
+                (cx, cy, cw, ch) = cv2.boundingRect(contour)
+                cx -= margin
+                cy -= margin
+                cw += 2*margin
+                ch += 2*margin
+                #print(cx, cy, cw, ch)
+                #cv2.rectangle(frame, (cx+tx, cy+ty), (cx+tx + cw, cy+ty + ch), (0, 255, 0), 2)
+
+                if cw - tw >= margin/2 :
+                    print(f"Enlarging tracker - {i}")
+                    tracker = None
+                    tracker = create_tracker(thresholded, cx+tracker_x, cy+tracker_y, cw, ch)
+                elif tw - cw >= margin/2:
+                    print(f"Making tracker smaller - {i}")
+                    tracker = None
+                    tracker = create_tracker(thresholded, cx+tracker_x, cy+tracker_y, cw, ch)
+
+                offset_contours = [contour + np.array([tracker_x, tracker_y], dtype=np.int32) for contour in contours]
+                cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
         else:
             print("Tracker lost")
             tracker = None
             detected = None
+    i += 1
 
     cv2.putText(frame,'FPS ' + str(fps),textOrg, fontFace, fontScale,(255,0,255),thickness)
     cv2.imshow("Grey", frame)
