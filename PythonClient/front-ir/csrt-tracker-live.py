@@ -3,6 +3,7 @@ import numpy as np
 import airsim
 import time
 import os
+import math
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -46,14 +47,10 @@ thresh = cv2.THRESH_BINARY
 if inv: thresh = cv2.THRESH_BINARY_INV
 wait_time = 0
 
-
 def create_tracker(frame, x,y,w,h):
     tracker = cv2.legacy.TrackerCSRT_create()
     tracker.init(frame, (x, y, w, h))
     return tracker
-
-
-i = 0
 
 while True:
     # because this method returns std::vector<uint8>, msgpack decides to encode it as a string unfortunately.
@@ -81,26 +78,34 @@ while True:
         (success, box) = tracker.update(thresholded)
         if success:
             (tx, ty, tw, th) = [int(v) for v in box]
-            cv2.rectangle(frame, (tx, ty), (tx + tw, ty + th), (0, 255, 0), 2)
-
             tracker_x = tx
             tracker_y = ty
+            tracker_w = tw
+            tracker_h = th
 
             cropped_tracker = cv2.getRectSubPix(thresholded, (tw, th), (tx + tw / 2, ty + th / 2))
 
             circles = cv2.HoughCircles(cropped_tracker, cv2.HOUGH_GRADIENT, dp=1.1, minDist=100,
                                        param1=110, param2=25, minRadius=10, maxRadius=100)
             if circles is not None:
-                #circles = np.uint16(np.around(circles))  # Round and convert to integer
-                #for circle in circles[0, :]:
+                circles = np.uint16(np.around(circles))  # Round and convert to integer
+                for circle in circles[0, :]:
                     #Draw the outer circle
-                    #cv2.circle(frame, (circle[0]+x, circle[1]+y), circle[2], (0, 0, 0), 2)
+                    #cv2.circle(frame, (circle[0]+tx, circle[1]+ty), circle[2], (0, 0, 0), 2)
                     #Draw the center of the circle
-                    #cv2.circle(frame, (circle[0]+x, circle[1]+y), 2, (0, 0, 255), 3)
-                print("Round shape detected. Stopping tracking for 2 sec")
-                tracker = None
-                detected = False
-                wait_time = time.time()
+                    #cv2.circle(frame, (circle[0]+tx, circle[1]+ty), 2, (0, 0, 0), 2)
+
+                    #print(f"Circle center - {circle[0]+tx}")
+                    #print(f"Tracker center - {tx + (tw/2)}")
+
+                    if (circle[0]+tx) - (tx + (tw/2)) < tw/4:
+                        print("Round shape detected in center of the tracker. Stopping tracking for 2 sec")
+                        tracker = None
+                        detected = False
+                        wait_time = time.time()
+                        continue
+            if not detected and tracker == None:
+                continue
                 #continue
 
             # current_time = time.time()
@@ -137,22 +142,35 @@ while True:
                 #print(cx, cy, cw, ch)
                 #cv2.rectangle(frame, (cx+tx, cy+ty), (cx+tx + cw, cy+ty + ch), (0, 255, 0), 2)
 
-                if cw - tw >= margin/2 :
-                    print(f"Enlarging tracker - {i}")
-                    tracker = None
-                    tracker = create_tracker(thresholded, cx+tracker_x, cy+tracker_y, cw, ch)
-                elif tw - cw >= margin/2:
-                    print(f"Making tracker smaller - {i}")
-                    tracker = None
-                    tracker = create_tracker(thresholded, cx+tracker_x, cy+tracker_y, cw, ch)
+                if math.fabs(cw - tw) > math.log(tw)*2:
+                    tracker_x = cx+tx
+                    tracker_y = cy+ty
+                    tracker_w = cw
+                    tracker_h = ch
+                    tracker = create_tracker(thresholded, tracker_x, tracker_y, tracker_w, tracker_h)
 
+                # if cw - tw >= margin/2 :
+                    # print(f"Enlarging tracker - {i}")
+                    # tracker = None
+#
+                    # tracker_x = cx+tx
+                    # tracker_y = cy+ty
+                    # tracker_w = cw
+                    # tracker_h = ch
+#
+                    # tracker = create_tracker(thresholded, cx+tx, cy+ty, cw, ch)
+                # elif tw - cw >= margin/2:
+                    # print(f"Making tracker smaller - {i}")
+                    # tracker = None
+                    # tracker = create_tracker(thresholded, cx+tx, cy+ty, cw, ch)
+
+                cv2.rectangle(frame, (tracker_x, tracker_y), (tracker_x + tracker_w, tracker_y + tracker_h), (0, 255, 0), 2)
                 offset_contours = [contour + np.array([tracker_x, tracker_y], dtype=np.int32) for contour in contours]
                 cv2.drawContours(frame, offset_contours, -1, (0, 255, 0), 1)
         else:
             print("Tracker lost")
             tracker = None
             detected = None
-    i += 1
 
     cv2.putText(frame,'FPS ' + str(fps),textOrg, fontFace, fontScale,(255,0,255),thickness)
     cv2.imshow("Grey", frame)
