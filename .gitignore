@@ -405,3 +405,5 @@ PythonClient/docs/_build
 .drone/
 *.png
 *.txt
+*.xml
+*.jpg
