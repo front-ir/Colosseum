@@ -404,3 +404,4 @@ PythonClient/docs/_build
 .cache/
 .drone/
 *.png
+*.txt
