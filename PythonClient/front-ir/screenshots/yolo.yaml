@@ -1,0 +1,4 @@
+train: positive
+val: val  # or point it to an empty directory
+nc: 1  # Number of classes
+names: ['shahed']  # Name of your object class

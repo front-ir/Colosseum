@@ -5,7 +5,7 @@ import cv2
 import unreal
 
 script_path = os.path.dirname(os.path.realpath(__file__))
-screenshots_dir = f"{script_path}/screenshots/positive/"
+screenshots_dir = f"{script_path}/screenshots/positive1/"
 
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
@@ -18,7 +18,7 @@ client.simSetCameraPose("0", camera_pose)
 image_type = 0
 pixels_as_float = False
 compress = False
-height = 10
+height = 20
 
 i = 0
 
@@ -29,8 +29,6 @@ while i < 475:
 
     image = np.frombuffer(response.image_data_uint8, dtype=np.uint8).reshape(response.height, response.width, 3)
     image = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
-    _, thresholded = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)
 
-    cv2.imwrite(os.path.normpath(screenshots_dir + f'{image_type}_xyz_{i}_int_{height}.png'), thresholded) # write to png
-    #cv2.imwrite(os.path.normpath(screenshots_dir + f'asd{i}.png'), thresholded) # write to png
+    cv2.imwrite(os.path.normpath(screenshots_dir + f'{image_type}_x_{i}_int_{height}.png'), image) # write to png
     i += 1

@@ -1,0 +1,11 @@
+train: positive1
+val: val  # or point it to an empty directory
+nc: 7  # Number of classes
+names:
+  0: "500"
+  1: "400"
+  2: "300"
+  3: "200"
+  4: "100"
+  5: "50"
+  6: "20"
