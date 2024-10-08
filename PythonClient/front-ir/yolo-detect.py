@@ -22,7 +22,22 @@ detected = False
 
 DEBUG = False
 
-model = ultralytics.YOLO(r"U:\front-ir\Colosseum\runs\detect\train18\weights\best.pt")
+#2 bad
+#7 bad
+#9 so so
+#10 avg
+#12 bad
+#13 sup bad
+#14 sup bad
+#16 sup bad
+#17 so so
+#18 avg
+#21 awf
+#25 awf
+#27
+
+
+model = ultralytics.YOLO(r"U:\front-ir\Colosseum\runs\detect\train10\weights\best.pt")
 
 client = airsim.MultirotorClient()
 client.confirmConnection()
