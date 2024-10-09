@@ -20,7 +20,7 @@ def split_classes(images_folder):
                 r.truncate()
 
 # Example usage
-images_folder = os.path.join(script_path, "screenshots", "positive2")
+images_folder = os.path.join(script_path, "screenshots", "positive1")
 
 classes = {
     500 : 0,
