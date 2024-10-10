@@ -5,25 +5,6 @@ import time
 import os
 import math
 
-def load_classifier(cascade_path):
-    # Load the Haar cascade file
-    cascade = cv2.CascadeClassifier(filename=cascade_path)
-    if cascade.empty():
-        raise IOError(f"Cannot load cascade classifier from file: {cascade_path}")
-    return cascade
-
-def run_cascade(frame, scaleFactor, minNeighbors, minSize, maxSize):
-    detections = cascade.detectMultiScale(image=frame, scaleFactor=scaleFactor, minNeighbors=minNeighbors, minSize=minSize, maxSize=maxSize)
-    if len(detections) == 1:
-        if DEBUG: print(f"Cascade center: {detections[0][0]+detections[0][2]*0.5} {detections[0][1]+detections[0][3]*0.5}")
-        return (True, detections[0])
-    return (False, (None, None, None, None))
-
-def create_tracker(frame, x_coord, y_coord, width, height):
-    global tracker
-    tracker = cv2.legacy.TrackerCSRT_create()
-    tracker.init(frame, (x_coord, y_coord, width, height))
-
 script_path = os.path.dirname(p=os.path.realpath(__file__))
 textSize, _ = cv2.getTextSize(text="FPS", fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, thickness=2)
 textOrg = (10, 10 + textSize[1])
@@ -38,9 +19,12 @@ wait_time = 0
 tracker = None
 detected = False
 
-DEBUG = False
+DEBUG = True
 
-cascade = load_classifier(cascade_path=os.path.join(script_path, "RAB_HAAR", "cascade.xml"))
+cascadePath = os.path.join(script_path, "RAB_HAAR", "cascade.xml")
+cascade = cv2.CascadeClassifier(filename=cascadePath)
+if cascade.empty():
+    raise IOError(f"Cannot load cascade classifier from file: {cascadePath}")
 
 client = airsim.MultirotorClient()
 client.confirmConnection()
@@ -56,18 +40,28 @@ while True:
     grey = cv2.cvtColor(src=image, code=cv2.COLOR_RGBA2GRAY)
     _, thresholded = cv2.threshold(src=grey, thresh=200, maxval=255, type=cv2.THRESH_BINARY)
 
-    if time.time() - wait_time > 2:
+    if time.time() - wait_time > 1:
         wait_time = 0
 
     if wait_time == 0:
         if not detected:
-            detected, cascade_coords = run_cascade(frame=thresholded, scaleFactor=1.05, minNeighbors=55,
-                                                   minSize=(int(cascade_size*0.25), int(cascade_size*0.25)),
-                                                   maxSize=(cascade_size, cascade_size))
+            print("detecting")
+            print(cascade_size)
+            detections = cascade.detectMultiScale(image=thresholded, scaleFactor=1.05, minNeighbors=55, minSize=(int(cascade_size*0.25), int(cascade_size*0.25)), maxSize=(cascade_size, cascade_size))
+            if len(detections) == 1:
+                print("successfully detected")
+                detected = True
+                cascade_coords = detections[0]
+                if DEBUG: print(f"Cascade center: {detections[0][0]+detections[0][2]*0.5} {detections[0][1]+detections[0][3]*0.5}")
+            else: 
+                detected = False
+                cascade_coords = (None, None, None, None)
+                print("couldn't detect")
 
             if detected:
-                create_tracker(frame=thresholded, x_coord=cascade_coords[0], y_coord=cascade_coords[1],
-                               width=cascade_coords[2], height=cascade_coords[3])
+                tracker = None
+                tracker = cv2.legacy.TrackerCSRT_create()
+                tracker.init(thresholded, cascade_coords)
 
         if detected:
             (success, box) = tracker.update(thresholded)
@@ -103,9 +97,15 @@ while True:
                         wait_time = time.time()
                         if DEBUG: print("Nothing is inside the tracker. Refreshing")
                     elif len(contours) > 1:
-                        detected, cascade_coords = run_cascade(frame=cropped_tracker, scaleFactor=1.05, minNeighbors=55,
-                                                               minSize=(int(cascade_size*0.25), int(cascade_size*0.25)),
-                                                               maxSize=(cascade_size, cascade_size))
+                        detections = cascade.detectMultiScale(image=thresholded, scaleFactor=1.05, minNeighbors=55, minSize=(int(cascade_size*0.25), int(cascade_size*0.25)), maxSize=(cascade_size, cascade_size))
+                        if len(detections) == 1:
+                            detected = True
+                            cascade_coords = detections[0]
+                            if DEBUG: print(f"Cascade center: {detections[0][0]+detections[0][2]*0.5} {detections[0][1]+detections[0][3]*0.5}")
+                        else: 
+                            detected = False
+                            cascade_coords = (None, None, None, None)
+
                         if not detected:
                             tracker = None
                             wait_time = time.time()
@@ -126,15 +126,16 @@ while True:
                                           (contour_coords[0] + contour_coords[2], contour_coords[1] + contour_coords[3]),
                                           (255, 255, 255), 1)
 
-                        if math.fabs(contour_coords[2] - tracker_coords[2]) > 3 or math.fabs(contour_coords[3] - tracker_coords[3]) > 3:
-                            cascade_size=contour_coords[2]
-                            create_tracker(frame=thresholded, x_coord=contour_coords[0], y_coord=contour_coords[1],
-                                           width=contour_coords[2], height=contour_coords[3])
+                        if math.fabs(contour_coords[2] - tracker_coords[2]) > 1 or math.fabs(contour_coords[3] - tracker_coords[3]) > 1:
+                            cascade_size=max(contour_coords[2], 50)
+                            tracker = None
+                            tracker = cv2.legacy.TrackerCSRT_create()
+                            tracker.init(thresholded, contour_coords)
                         cv2.drawContours(image=grey, contours=[contour], contourIdx=-1, color=(0, 255, 0), thickness=1)
             else:
                 print("Tracker lost")
                 tracker = None
-                detected = None
+                detected = False
 
     cv2.putText(img=grey, text=f"{fps}", org=textOrg, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(255,0,255), thickness=2)
     cv2.imshow("Grey", grey)
