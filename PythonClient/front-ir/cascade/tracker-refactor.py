@@ -19,7 +19,7 @@ wait_time = 0
 tracker = None
 detected = False
 
-DEBUG = True
+DEBUG = False
 
 cascadePath = os.path.join(script_path, "RAB_HAAR", "cascade.xml")
 cascade = cv2.CascadeClassifier(filename=cascadePath)
@@ -45,18 +45,14 @@ while True:
 
     if wait_time == 0:
         if not detected:
-            print("detecting")
-            print(cascade_size)
             detections = cascade.detectMultiScale(image=thresholded, scaleFactor=1.05, minNeighbors=55, minSize=(int(cascade_size*0.25), int(cascade_size*0.25)), maxSize=(cascade_size, cascade_size))
             if len(detections) == 1:
-                print("successfully detected")
                 detected = True
                 cascade_coords = detections[0]
                 if DEBUG: print(f"Cascade center: {detections[0][0]+detections[0][2]*0.5} {detections[0][1]+detections[0][3]*0.5}")
             else: 
                 detected = False
                 cascade_coords = (None, None, None, None)
-                print("couldn't detect")
 
             if detected:
                 tracker = None
