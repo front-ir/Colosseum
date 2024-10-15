@@ -25,7 +25,7 @@ DEBUG = False
 #18 avg
 #5 pretty good
 
-model = ultralytics.YOLO(r"U:\front-ir\Colosseum\runs\detect\train5\weights\best.pt")
+model = ultralytics.YOLO(r"U:\front-ir\Colosseum\runs\detect\train\weights\best.pt")
 
 client = airsim.MultirotorClient()
 client.confirmConnection()
@@ -40,28 +40,27 @@ while True:
     image = np.frombuffer(buffer=response.image_data_uint8, dtype=np.uint8).reshape(response.height, response.width, 3)
     grey = cv2.cvtColor(src=image, code=cv2.COLOR_RGB2GRAY)
     norm = cv2.cvtColor(src=grey, code=cv2.COLOR_GRAY2RGB)
-    #thresholded = cv2.cvtColor(cv2.threshold(src=grey, thresh=200, maxval=255, type=cv2.THRESH_BINARY)[1], code=cv2.COLOR_GRAY2RGB)
 
-    results = model(norm)
-    #results.show()
+    results = model.predict(source=norm)
     for result in results:
-       for box in result.boxes:  # Iterate over each box
-       # Get bounding box coordinates (in pixels)
-           #if (box.conf.item() > 0.1):
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()  # Coordinates in the format (x1, y1, x2, y2)
+       print(result.names)
+       for box in result.boxes:
+            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            class_id = int(box.cls[0].cpu().numpy())
+            class_name = result.names[class_id]  # Get the class name from model
+            confidence = box.conf[0].cpu().numpy()
 
-            color = (0, 255, 0)  # Green color for the bounding box
-            thickness = 2  # Thickness of the bounding box lines
-            cv2.rectangle(grey, (x1, y1), (x2, y2), color, thickness)
 
-            confidence = box.conf.item()  # Confidence score for the detection
-            class_id = int(box.cls)  # Class ID of the detected object
+            cv2.rectangle(grey, (x1, y1), (x2, y2), (0, 255, 0), 1)
 
-            # Print the coordinates and other details
-            print(f"Bounding Box: ({x1}, {y1}, {x2}, {y2})")
-            print(f"Confidence: {confidence}")
-            print(f"Class ID: {class_id}")
+            label = f"{class_name} {confidence:.2f}"
+            label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            label_y = max(y1 - 10, label_size[1])  # Ensure text is above the box
+            cv2.putText(grey, label, (x1, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+
+            print(x1, y1, x2, y2)
 
     cv2.putText(img=grey, text=f"{fps}", org=textOrg, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(255,0,255), thickness=2)
     cv2.imshow("Grey", grey)

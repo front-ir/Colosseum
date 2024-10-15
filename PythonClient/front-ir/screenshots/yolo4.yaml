@@ -1,0 +1,6 @@
+train: positive13
+val: val  # or point it to an empty directory
+nc: 2  # Number of classes
+names:
+  0: shahed
+  1: sun

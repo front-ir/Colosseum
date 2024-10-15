@@ -10,7 +10,7 @@ def train():
     model = YOLO('yolov8n.pt')  # 'n' stands for nano model, can also be 's', 'm', 'l', 'x'
 
     # Train on your custom dataset
-    data_path = os.path.join(script_path, "screenshots", "yolo3.yaml")
+    data_path = os.path.join(script_path, "../screenshots", "yolo4.yaml")
     model.train(data=data_path, epochs=30, batch=16, imgsz=640, device='cuda', workers=8, optimizer='auto')
 
 if __name__ == "__main__":
