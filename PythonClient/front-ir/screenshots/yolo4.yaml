@@ -1,4 +1,4 @@
-train: positive13
+train: positive15
 val: val  # or point it to an empty directory
 nc: 2  # Number of classes
 names:

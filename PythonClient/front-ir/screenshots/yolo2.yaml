@@ -1,4 +1,8 @@
 train: positive2
 val: val2  # or point it to an empty directory
-nc: 1  # Number of classes
-names: ['shahed']  # Name of your object class
+nc: 2  # Number of classes
+names:
+  0: shahed
+  1: sun
+
+# add sun here as second class and run for 300 epochs

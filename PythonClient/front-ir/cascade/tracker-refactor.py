@@ -5,12 +5,18 @@ import time
 import os
 import math
 
+# https://learnopencv.com/object-tracking-using-opencv-cpp-python/
+# Might be a good idea to revisit the page and try other trackers: cv2.Tracker...
+
+# https://github.com/nrsyed/computer-vision/blob/master/multithread/thread_demo.py
+# https://stackoverflow.com/questions/55494331/recording-video-with-opencv-python-multithreading
+# get inspiration for threading the processes for possibly better performance
+
+# Ensure is True
+cv2.setUseOptimized(True)
+print(cv2.useOptimized())
+
 script_path = os.path.dirname(p=os.path.realpath(__file__))
-textSize, _ = cv2.getTextSize(text="FPS", fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, thickness=2)
-textOrg = (10, 10 + textSize[1])
-frameCount = 0
-startTime = time.time()
-fps = 0
 
 cascade_size=50
 
@@ -34,6 +40,7 @@ camera_pose = airsim.Pose(position_val=airsim.Vector3r(0, 0, 0), orientation_val
 client.simSetCameraPose(camera_name="0", pose=camera_pose)
 
 while True:
+    timer = cv2.getTickCount()
     response = client.simGetImages(requests=[
         airsim.ImageRequest(camera_name="0", image_type=airsim.ImageType.Scene, pixels_as_float=False, compress=False)])[0]
     image = np.frombuffer(buffer=response.image_data_uint8, dtype=np.uint8).reshape(response.height, response.width, 3)
@@ -133,16 +140,10 @@ while True:
                 tracker = None
                 detected = False
 
-    cv2.putText(img=grey, text=f"{fps}", org=textOrg, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(255,0,255), thickness=2)
+    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+    cv2.putText(img=grey, text=f"{int(fps)}", org=(20, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(255,0,255), thickness=2)
     cv2.imshow("Grey", grey)
     cv2.imshow("thresholded", thresholded)
-    frameCount += 1
-    endTime = time.time()
-    diff = endTime - startTime
-    if (diff > 1):
-        fps = frameCount
-        frameCount = 0
-        startTime = endTime
     key = cv2.waitKey(1) & 0xFF
     if (key == 27 or key == ord('q') or key == ord('x')):
         break
