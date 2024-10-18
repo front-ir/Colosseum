@@ -1,0 +1,464 @@
+diff --git a/benchmark/src/tcp.c b/benchmark/src/tcp.c
+index 9d4ee42..d3b5d6e 100644
+--- a/benchmark/src/tcp.c
++++ b/benchmark/src/tcp.c
+@@ -59,7 +59,7 @@ static int *csock;
+ static int *fd;
+ static struct sockaddr_in *addr;
+ static struct sockaddr_in *caddr;
+-unsigned clen;
++extern unsigned clen;
+ 
+ 
+ static void s_init(void) {
+diff --git a/configurate.sh b/configurate.sh
+new file mode 100644
+index 0000000..ff4028e
+--- /dev/null
++++ b/configurate.sh
+@@ -0,0 +1 @@
++./configure --enable-kbuild=no --enable-dkms=no --enable-dkms-build=no
+\ No newline at end of file
+diff --git a/python/ach_py.c b/python/ach_py.c
+index 6bfa029..cd5d218 100644
+--- a/python/ach_py.c
++++ b/python/ach_py.c
+@@ -74,38 +74,36 @@ PyMODINIT_FUNC initach_py(void);
+ 
+ static PyObject *ach_py_error;
+ 
+-static ach_channel_t *parse_channel_pointer( PyObject *i ) {
+-    if( PyInt_Check(i) ) {
+-        return (ach_channel_t*)PyInt_AsLong(i);
++static ach_channel_t *parse_channel_pointer(PyObject *i) {
++    if(PySet_Check(i)) {
++        return (ach_channel_t*)PyLong_AsLong(i);
+     } else if ( PyLong_Check(i) ) {
+         return (ach_channel_t*)PyLong_AsVoidPtr(i);
+     } else {
+-        PyErr_SetString( PyExc_TypeError, "invalid channel pointer" );
++        PyErr_SetString(PyExc_TypeError, "invalid channel pointer");
+         return NULL;
+     }
+ }
+ 
+-static PyObject  *raise_error( ach_status_t r ) {
+-    PyErr_SetString( ach_py_error, ach_result_to_string(r) );
++static PyObject  *raise_error(ach_status_t r) {
++    PyErr_SetString(ach_py_error, ach_result_to_string(r));
+     return NULL;
+ }
+ 
+-static PyObject *
+-ach_error( PyObject *self, PyObject *args ) {
++static PyObject *ach_error(PyObject *self, PyObject *args) {
+     (void)self;
+     int r;
+-    if( !PyArg_ParseTuple(args, "i", &r ) ) {
++    if(!PyArg_ParseTuple(args, "i", &r )) {
+         return NULL;
+     }
+     return raise_error((ach_status_t)r);
+ }
+ 
+-static PyObject *
+-open_channel( PyObject *self, PyObject *args ) {
++static PyObject *open_channel(PyObject *self, PyObject *args) {
+     (void)self;
+     const char *name = NULL;
+     long frame_count = 0, frame_size = 0;
+-    if( !PyArg_ParseTuple(args, "sll", &name, &frame_count, &frame_size ) ) {
++    if(!PyArg_ParseTuple(args, "sll", &name, &frame_count, &frame_size)) {
+         return NULL;
+     }
+     /* Alloc struct */
+@@ -115,23 +113,22 @@ open_channel( PyObject *self, PyObject *args ) {
+     ach_status_t r = ach_open(c, name, NULL);
+ 
+     /* Create channel if necessary */
+-    if( ACH_ENOENT == r ) {
+-        r = ach_create( name, (size_t)frame_count, (size_t)frame_size, NULL );
+-        if( ach_status_match(r, ACH_MASK_OK | ACH_MASK_EEXIST) ) {
++    if(ACH_ENOENT == r) {
++        r = ach_create(name, (size_t)frame_count, (size_t)frame_size, NULL);
++        if( ach_status_match(r, ACH_MASK_OK | ACH_MASK_EEXIST)) {
+             r = ach_open(c, name, NULL);
+         }
+     }
+ 
+     /* Check result */
+-    if( ACH_OK != r ) {
++    if(ACH_OK != r) {
+         return raise_error(r);
+     }
+ 
+     return PyLong_FromVoidPtr(c);
+ }
+ 
+-static PyObject *
+-close_channel( PyObject *self, PyObject *args ) {
++static PyObject *close_channel(PyObject *self, PyObject *args) {
+     (void)self;
+ 
+     PyObject *py_chan;
+@@ -140,12 +137,12 @@ close_channel( PyObject *self, PyObject *args ) {
+     }
+ 
+     ach_channel_t *c = parse_channel_pointer(py_chan);
+-    if( NULL == c ) {
++    if(NULL == c) {
+         return NULL;
+     }
+ 
+     ach_status_t r = ach_close(c);
+-    if( ACH_OK != r ) {
++    if(ACH_OK != r) {
+         return raise_error(r);
+     }
+ 
+@@ -154,18 +151,16 @@ close_channel( PyObject *self, PyObject *args ) {
+     Py_RETURN_NONE;
+ }
+ 
+-static PyObject *
+-result_string( PyObject *self, PyObject *args ) {
++static PyObject *result_string(PyObject *self, PyObject *args) {
+     (void)self;
+     int r;
+-    if( !PyArg_ParseTuple(args, "i", &r ) ) {
++    if(!PyArg_ParseTuple(args, "i", &r )) {
+         return NULL;
+     }
+-    return PyString_FromString( ach_result_to_string((enum ach_status)r) );
++    return PyLong_FromString(ach_result_to_string((enum ach_status)r), NULL, 10);
+ }
+ 
+-static PyObject *
+-put_buf( PyObject *self, PyObject *args ) {
++static PyObject *put_buf( PyObject *self, PyObject *args ) {
+     (void)self;
+ 
+     PyObject *py_chan, *b;
+@@ -176,12 +171,12 @@ put_buf( PyObject *self, PyObject *args ) {
+ 
+     // parse channel
+     ach_channel_t *c = parse_channel_pointer(py_chan);
+-    if( NULL == c ) {
++    if(NULL == c) {
+         return NULL;
+     }
+ 
+     // parse buffer
+-    if( ! PyObject_CheckBuffer(b) ) {
++    if( !PyObject_CheckBuffer(b) ) {
+         PyErr_SetString( PyExc_TypeError, "invalid buffer" );
+         return NULL;
+     }
+@@ -207,32 +202,31 @@ put_buf( PyObject *self, PyObject *args ) {
+     Py_RETURN_NONE;
+ }
+ 
+-static PyObject *
+-get_buf( PyObject *self, PyObject *args ) {
++static PyObject *get_buf(PyObject *self, PyObject *args) {
+     (void)self;
+ 
+     PyObject *py_chan, *b;
+     int wait, last;
+     // get arg objects
+-    if( !PyArg_ParseTuple(args, "OOii", &py_chan, &b, &wait, &last) ) {
++    if( !PyArg_ParseTuple(args, "OOii", &py_chan, &b, &wait, &last)) {
+         return NULL;
+     }
+ 
+     // parse channel
+     ach_channel_t *c = parse_channel_pointer(py_chan);
+-    if( NULL == c ) {
++    if(NULL == c) {
+         return NULL;
+     }
+ 
+     // parse buffer
+-    if( ! PyObject_CheckBuffer(b) ) {
++    if(!PyObject_CheckBuffer(b)) {
+         PyErr_SetString( PyExc_TypeError, "invalid buffer" );
+         return NULL;
+     }
+ 
+     // view buffer
+     Py_buffer buf;
+-    if( PyObject_GetBuffer( b, &buf, PyBUF_WRITABLE ) ) {
++    if(PyObject_GetBuffer( b, &buf, PyBUF_WRITABLE) ) {
+         PyErr_SetString( PyExc_BufferError, "couldn't view writable buffer" );
+         return NULL;
+     }
+@@ -244,8 +238,8 @@ get_buf( PyObject *self, PyObject *args ) {
+ 
+     // make the damn call
+     size_t frame_size;
+-    ach_status_t r = ach_get( c, buf.buf, (size_t)buf.len,
+-                              &frame_size, NULL, opts );
++    ach_status_t r = ach_get(c, buf.buf, (size_t)buf.len,
++                              &frame_size, NULL, opts);
+     // cleanup
+     PyBuffer_Release(&buf);
+ 
+@@ -280,27 +274,26 @@ get_buf( PyObject *self, PyObject *args ) {
+ 
+ }
+ 
+-static PyObject *
+-flush_channel( PyObject *self, PyObject *args ) {
++static PyObject *flush_channel(PyObject *self, PyObject *args) {
+     (void)self;
+ 
+     PyObject *py_chan;
+     // get arg objects
+-    if( !PyArg_ParseTuple(args, "O", &py_chan) ) {
++    if(!PyArg_ParseTuple(args, "O", &py_chan)) {
+         return NULL;
+     }
+ 
+     // parse channel
+     ach_channel_t *c = parse_channel_pointer(py_chan);
+-    if( NULL == c ) {
++    if(NULL == c) {
+         return NULL;
+     }
+ 
+     // make the damn call
+-    ach_status_t r = ach_flush( c );
++    ach_status_t r = ach_flush(c);
+ 
+     // check the result
+-    if( ACH_OK != r ) {
++    if(ACH_OK != r) {
+         PyErr_SetString( ach_py_error, ach_result_to_string(r) );
+         return NULL;
+     }
+@@ -309,29 +302,28 @@ flush_channel( PyObject *self, PyObject *args ) {
+     Py_RETURN_NONE;
+ }
+ 
+-static PyObject *
+-chmod_channel( PyObject *self, PyObject *args ) {
++static PyObject *chmod_channel(PyObject *self, PyObject *args) {
+     (void)self;
+ 
+     PyObject *py_chan;
+     int mode;
+     // get arg objects
+-    if( !PyArg_ParseTuple(args, "Oi", &py_chan, &mode) ) {
++    if(!PyArg_ParseTuple(args, "Oi", &py_chan, &mode)) {
+         return NULL;
+     }
+ 
+     // parse channel
+     ach_channel_t *c = parse_channel_pointer(py_chan);
+-    if( NULL == c ) {
++    if(NULL == c) {
+         return NULL;
+     }
+ 
+     // make the damn call
+-    ach_status_t r = ach_chmod( c, (mode_t)mode );
++    ach_status_t r = ach_chmod(c, (mode_t)mode);
+ 
+     // check the result
+-    if( ACH_OK != r ) {
+-        PyErr_SetString( ach_py_error, ach_result_to_string(r) );
++    if(ACH_OK != r) {
++        PyErr_SetString(ach_py_error, ach_result_to_string(r));
+         return NULL;
+     }
+ 
+@@ -340,12 +332,12 @@ chmod_channel( PyObject *self, PyObject *args ) {
+ }
+ 
+ static PyObject *
+-unlink_channel( PyObject *self, PyObject *args ) {
++unlink_channel(PyObject *self, PyObject *args) {
+     (void)self;
+ 
+     const char *name;
+     // get arg objects
+-    if( !PyArg_ParseTuple(args, "s", &name) )  {
++    if(!PyArg_ParseTuple(args, "s", &name))  {
+         return NULL;
+     }
+ 
+@@ -353,8 +345,8 @@ unlink_channel( PyObject *self, PyObject *args ) {
+     ach_status_t r = ach_unlink( name );
+ 
+     // check the result
+-    if( ACH_OK != r ) {
+-        PyErr_SetString( ach_py_error, ach_result_to_string(r) );
++    if(ACH_OK != r) {
++        PyErr_SetString(ach_py_error, ach_result_to_string(r));
+         return NULL;
+     }
+ 
+@@ -376,44 +368,51 @@ static PyMethodDef module_methods[] = {
+    { NULL, NULL, 0, NULL }
+ };
+ 
++static struct PyModuleDef ach_module = {
++    PyModuleDef_HEAD_INIT,
++    "ach_py",       /* name of the module */
++    "Python extension module for the Ach IPC Library",  /* module documentation */
++    -1,             /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables */
++    module_methods  /* the methods array */
++};
+ 
+-PyMODINIT_FUNC initach_py() {
++PyMODINIT_FUNC PyInit_ach_py(void) {
+     PyObject *m;
+ 
+-    // methods
+-    m = Py_InitModule3("ach_py", module_methods, "Python extension module for the Ach IPC Library");
+-    if( NULL == m ) {
+-        return;
++    // Create the module
++    m = PyModule_Create(&ach_module);
++    if (m == NULL) {
++        return NULL;
+     }
+ 
+     // error object
+-    static char errname[] =  "ach_py.AchException";
+-    ach_py_error = PyErr_NewException( errname, NULL, NULL);
+-    Py_INCREF( ach_py_error ); // Reference counts?  Get with the program python!
++    static char errname[] = "ach_py.AchException";
++    ach_py_error = PyErr_NewException(errname, NULL, NULL);
++    Py_INCREF(ach_py_error);
+     PyModule_AddObject(m, "AchException", ach_py_error);
+ 
+     // keyword/const objects
+-    PyModule_AddObject( m, "ACH_OK",               PyInt_FromLong( ACH_OK ) );
+-    PyModule_AddObject( m, "ACH_OVERFLOW",         PyInt_FromLong( ACH_OVERFLOW ) );
+-    PyModule_AddObject( m, "ACH_INVALID_NAME",     PyInt_FromLong( ACH_INVALID_NAME ) );
+-    PyModule_AddObject( m, "ACH_BAD_SHM_FILE",     PyInt_FromLong( ACH_BAD_SHM_FILE ) );
+-    PyModule_AddObject( m, "ACH_FAILED_SYSCALL",   PyInt_FromLong( ACH_FAILED_SYSCALL ) );
+-    PyModule_AddObject( m, "ACH_STALE_FRAMES",     PyInt_FromLong( ACH_STALE_FRAMES ) );
+-    PyModule_AddObject( m, "ACH_EAGAIN"      ,     PyInt_FromLong( ACH_EAGAIN ) );
+-    PyModule_AddObject( m, "ACH_LOCKED"      ,     PyInt_FromLong( ACH_LOCKED ) );
+-    PyModule_AddObject( m, "ACH_MISSED_FRAME",     PyInt_FromLong( ACH_MISSED_FRAME ) );
+-    PyModule_AddObject( m, "ACH_TIMEOUT",          PyInt_FromLong( ACH_TIMEOUT ) );
+-    PyModule_AddObject( m, "ACH_EEXIST",           PyInt_FromLong( ACH_EEXIST ) );
+-    PyModule_AddObject( m, "ACH_ENOENT",           PyInt_FromLong( ACH_ENOENT ) );
+-    PyModule_AddObject( m, "ACH_CLOSED",           PyInt_FromLong( ACH_CLOSED ) );
+-    PyModule_AddObject( m, "ACH_BUG",              PyInt_FromLong( ACH_BUG ) );
+-    PyModule_AddObject( m, "ACH_EINVAL",           PyInt_FromLong( ACH_EINVAL ) );
+-    PyModule_AddObject( m, "ACH_CORRUPT",          PyInt_FromLong( ACH_CORRUPT ) );
+-    PyModule_AddObject( m, "ACH_CANCELED",         PyInt_FromLong( ACH_CANCELED ) );
+-    PyModule_AddObject( m, "ACH_BAD_HEADER",       PyInt_FromLong( ACH_BAD_HEADER ) );
+-    PyModule_AddObject( m, "ACH_EACCES",           PyInt_FromLong( ACH_EACCES ) );
+-    PyModule_AddObject( m, "ACH_O_WAIT",           PyInt_FromLong( ACH_O_WAIT ) );
+-    PyModule_AddObject( m, "ACH_O_LAST",           PyInt_FromLong( ACH_O_LAST ) );
+-    /* PyModule_AddObject( m, "ACH_DEFAULT_FRAME_SIZE",   PyInt_FromLong( ACH_DEFAULT_FRAME_SIZE ) ); */
+-    /* PyModule_AddObject( m, "ACH_DEFAULT_FRAME_COUNT",  PyInt_FromLong( ACH_DEFAULT_FRAME_COUNT ) ); */
++    PyModule_AddObject(m, "ACH_OK", PyLong_FromLong(ACH_OK));
++    PyModule_AddObject(m, "ACH_OVERFLOW", PyLong_FromLong(ACH_OVERFLOW));
++    PyModule_AddObject(m, "ACH_INVALID_NAME", PyLong_FromLong(ACH_INVALID_NAME));
++    PyModule_AddObject(m, "ACH_BAD_SHM_FILE", PyLong_FromLong(ACH_BAD_SHM_FILE));
++    PyModule_AddObject(m, "ACH_FAILED_SYSCALL", PyLong_FromLong(ACH_FAILED_SYSCALL));
++    PyModule_AddObject(m, "ACH_STALE_FRAMES", PyLong_FromLong(ACH_STALE_FRAMES));
++    PyModule_AddObject(m, "ACH_EAGAIN", PyLong_FromLong(ACH_EAGAIN));
++    PyModule_AddObject(m, "ACH_LOCKED", PyLong_FromLong(ACH_LOCKED));
++    PyModule_AddObject(m, "ACH_MISSED_FRAME", PyLong_FromLong(ACH_MISSED_FRAME));
++    PyModule_AddObject(m, "ACH_TIMEOUT", PyLong_FromLong(ACH_TIMEOUT));
++    PyModule_AddObject(m, "ACH_EEXIST", PyLong_FromLong(ACH_EEXIST));
++    PyModule_AddObject(m, "ACH_ENOENT", PyLong_FromLong(ACH_ENOENT));
++    PyModule_AddObject(m, "ACH_CLOSED", PyLong_FromLong(ACH_CLOSED));
++    PyModule_AddObject(m, "ACH_BUG", PyLong_FromLong(ACH_BUG));
++    PyModule_AddObject(m, "ACH_EINVAL", PyLong_FromLong(ACH_EINVAL));
++    PyModule_AddObject(m, "ACH_CORRUPT", PyLong_FromLong(ACH_CORRUPT));
++    PyModule_AddObject(m, "ACH_CANCELED", PyLong_FromLong(ACH_CANCELED));
++    PyModule_AddObject(m, "ACH_BAD_HEADER", PyLong_FromLong(ACH_BAD_HEADER));
++    PyModule_AddObject(m, "ACH_EACCES", PyLong_FromLong(ACH_EACCES));
++    PyModule_AddObject(m, "ACH_O_WAIT", PyLong_FromLong(ACH_O_WAIT));
++    PyModule_AddObject(m, "ACH_O_LAST", PyLong_FromLong(ACH_O_LAST));
++
++    return m;  // Return the created module
+ }
+diff --git a/python/getter.py b/python/getter.py
+new file mode 100644
+index 0000000..a8ae64d
+--- /dev/null
++++ b/python/getter.py
+@@ -0,0 +1,27 @@
++#!/usr/bin/env python
++import ach
++import struct
++import time
++
++i = 0
++
++channel = ach.Channel('channel152')
++time.sleep(1.5)
++#channel.flush()
++
++while True:
++
++    buffer = bytearray(4)
++    [status, framesize] = channel.get(buffer, wait=True, last=False)
++
++    #if status == ach.ACH_OK:
++    x,y = struct.unpack('<hh', buffer)
++    print(f"iteration {i} : receiving {x,y} from {buffer}")
++    #else:
++    #    raise ach.AchException(channel.result_string(int(status)))
++
++    i+= 1
++
++channel.flush()
++#channel.unlink()
++channel.close()
+\ No newline at end of file
+diff --git a/python/putter.py b/python/putter.py
+new file mode 100644
+index 0000000..29ea2a1
+--- /dev/null
++++ b/python/putter.py
+@@ -0,0 +1,21 @@
++#!/usr/bin/env python
++import ach
++import struct
++import time
++
++i = 0
++x,y = 320,240
++channel = ach.Channel('channel152')
++channel.flush()
++
++time.sleep(1)
++
++
++while i < 10:
++    data = struct.pack('<hh', x+(i*10), y+(i*10))
++    print(f"iteration {i} : sending {x+(i*10),y+(i*10)} as {data}")
++    channel.put(data)
++    i += 1
++
++#channel.unlink()
++channel.close()
+\ No newline at end of file
+diff --git a/python/test.py b/python/test.py
+new file mode 100644
+index 0000000..bca72c1
+--- /dev/null
++++ b/python/test.py
+@@ -0,0 +1,13 @@
++import subprocess
++
++# Run script1.py
++process1 = subprocess.Popen(['python3', 'putter.py'])
++
++# Run script2.py
++process2 = subprocess.Popen(['python3', 'getter.py'])
++
++# Wait for both processes to finish
++process1.wait()
++process2.wait()
++
++print("Both scripts have finished.")

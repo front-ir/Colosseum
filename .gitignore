@@ -402,8 +402,6 @@ PythonClient/docs/_build
 
 # clangd generated folder, for e.g. from VSCode clangd extension
 .cache/
+
+# python venv
 drone/
-*.png
-*.txt
-*.xml
-*.jpg
